@@ -1,0 +1,12 @@
+{
+  "store": {
+    "name": "SuperSkills",
+    "url": "https://superskills.lemonsqueezy.com",
+    "store_id": "302131"
+  },
+  "products": [
+    {"name": "Agent Reach", "price": 99},
+    {"name": "Proactive Solvr", "price": 49},
+    {"name": "Soulcraft", "price": 29}
+  ]
+}
