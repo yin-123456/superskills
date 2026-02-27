@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>技能详情 - SuperSkills</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+<body class="bg-stone-50 min-h-screen">
+<div id="app" class="max-w-3xl mx-auto px-6 py-12">
+  <!-- 返回 -->
+  <a href="/" class="text-stone-500 mb-8 inline-block">← 返回</a>
+  
+  <!-- 技能信息 -->
+  <div class="bg-white/70 backdrop-blur rounded-2xl p-8 mb-6">
+    <div class="flex items-start gap-6">
+      <div class="text-5xl">{{ skill.icon }}</div>
+      <div class="flex-1">
+        <h1 class="text-2xl font-bold mb-2">{{ skill.name }}</h1>
+        <p class="text-stone-500 mb-4">{{ skill.desc }}</p>
+        <div class="flex gap-4 text-sm text-stone-400">
+          <span>已售 {{ skill.sold }} 份</span>
+          <span>卖家: {{ skill.seller }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 价格曲线 -->
+  <div class="bg-white/70 backdrop-blur rounded-2xl p-6 mb-6">
+    <h2 class="font-semibold mb-4">价格曲线</h2>
+    <svg viewBox="0 0 300 100" class="w-full h-32">
+      <path :d="curvePath" fill="none" stroke="#6366f1" stroke-width="2"/>
+      <circle :cx="skill.sold * 3" :cy="100 - getPrice(skill) / 3" r="5" fill="#6366f1"/>
+    </svg>
+    <div class="text-center text-stone-500 text-sm mt-2">
+      销量越多，价格越高
+    </div>
+  </div>
+
+  <!-- 购买区域 -->
+  <div class="bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl p-6 text-white">
+    <div class="flex justify-between items-center">
+      <div>
+        <div class="text-3xl font-bold">¥{{ getPrice(skill) }}</div>
+        <div class="text-white/70 text-sm">下一份 ¥{{ getNextPrice(skill) }}</div>
+      </div>
+      <button @click="buy" class="bg-white text-indigo-600 px-8 py-3 rounded-xl font-semibold">
+        立即购买
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+const { createApp } = Vue;
+createApp({
+  data() {
+    return {
+      skill: { id: '1', name: 'Agent Reach', icon: '👁️', desc: '让AI看见整个互联网', base: 29, sold: 12, seller: '@jucigg' }
+    }
+  },
+  computed: {
+    curvePath() {
+      let d = '';
+      for (let i = 0; i <= 100; i++) {
+        const price = Math.round(this.skill.base * Math.pow(1 + i / 10, 1.5));
+        d += `${i === 0 ? 'M' : 'L'} ${i * 3} ${100 - price / 3} `;
+      }
+      return d;
+    }
+  },
+  methods: {
+    getPrice(s) { return Math.round(s.base * Math.pow(1 + s.sold / 10, 1.5)); },
+    getNextPrice(s) { return Math.round(s.base * Math.pow(1 + (s.sold + 1) / 10, 1.5)); },
+    buy() { alert('支付功能开发中...'); }
+  }
+}).mount('#app');
+</script>
+</body>
+</html>
