@@ -105,6 +105,32 @@
     
     /* FAQ */
     .section-title { font-size: 1.75rem; font-weight: 600; text-align: center; margin-bottom: 40px; }
+    
+    /* 用户评价 */
+    .testimonials { margin: 60px 0; }
+    .testimonial {
+      background: var(--card);
+      border-radius: 20px;
+      padding: 24px;
+      margin-bottom: 16px;
+      backdrop-filter: blur(10px);
+    }
+    .testimonial-text { font-style: italic; margin-bottom: 12px; line-height: 1.6; }
+    .testimonial-author { color: var(--muted); font-size: 0.9rem; }
+    
+    /* 安装教程 */
+    .install-box {
+      background: #1a1a1a;
+      color: #fff;
+      border-radius: 16px;
+      padding: 24px;
+      margin: 40px 0;
+      font-family: monospace;
+    }
+    .install-box code {
+      color: #a5f3fc;
+    }
+    
     .faq { max-width: 600px; margin: 0 auto 60px; }
     .faq-item { 
       background: var(--card);
@@ -191,6 +217,28 @@
         <h4>购买后可以退款吗？</h4>
         <p>7天内无理由退款，请联系客服处理。</p>
       </div>
+    </div>
+
+    <!-- 用户评价 -->
+    <h2 class="section-title">用户评价</h2>
+    <div class="faq">
+      <div class="testimonial">
+        <div class="testimonial-text">"Agent Reach 让我的 AI 助手终于能上网了，效率提升 10 倍！"</div>
+        <div class="testimonial-author">— @indie_dev</div>
+      </div>
+      <div class="testimonial">
+        <div class="testimonial-text">"Soulcraft 太有意思了，我的 AI 现在有自己的性格了。"</div>
+        <div class="testimonial-author">— @ai_enthusiast</div>
+      </div>
+    </div>
+
+    <!-- 安装教程 -->
+    <h2 class="section-title">一键安装</h2>
+    <div class="install-box">
+      <code>$ clawhub install agent-reach</code><br><br>
+      <code>✓ 下载完成</code><br>
+      <code>✓ 验证许可证</code><br>
+      <code>✓ 安装成功！</code>
     </div>
 
     <footer>© 2026 SuperSkills · 让 AI 更强大</footer>
