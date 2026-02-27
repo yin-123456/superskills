@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi-Agent Memory System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg-deep: #06080d;
+  --bg-card: #0d1117;
+  --bg-card-hover: #131a24;
+  --border: #1b2433;
+  --border-glow: #2a3a52;
+  --text-primary: #e2e8f0;
+  --text-secondary: #8b9ab5;
+  --text-muted: #4a5568;
+  --p0: #f472b6;
+  --p0-bg: rgba(244,114,182,0.08);
+  --p0-border: rgba(244,114,182,0.25);
+  --p1: #60a5fa;
+  --p1-bg: rgba(96,165,250,0.08);
+  --p1-border: rgba(96,165,250,0.25);
+  --p2: #a78bfa;
+  --p2-bg: rgba(167,139,250,0.08);
+  --p2-border: rgba(167,139,250,0.25);
+  --accent: #34d399;
+  --accent-bg: rgba(52,211,153,0.08);
+  --shared: #fbbf24;
+  --shared-bg: rgba(251,191,36,0.08);
+  --shared-border: rgba(251,191,36,0.25);
+  --font-display: 'Outfit', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+body {
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── 背景纹理 ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 10%, rgba(244,114,182,0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 80%, rgba(96,165,250,0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 50% 50%, rgba(167,139,250,0.03) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.noise-overlay {
+  position: fixed;
+  inset: 0;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── 布局 ── */
+.container {
+  position: relative;
+  z-index: 1;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 40px 32px 60px;
+}
+
+/* ── 头部 ── */
+.header {
+  margin-bottom: 48px;
+  animation: fadeSlideDown 0.6s ease-out;
+}
+
+.header-top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.header-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--p0) 0%, var(--p1) 50%, var(--p2) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  box-shadow: 0 0 30px rgba(244,114,182,0.15), 0 0 60px rgba(96,165,250,0.1);
+}
+
+.header h1 {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.header-sub {
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-weight: 400;
+  margin-left: 64px;
+  font-family: var(--font-mono);
+}
+
+.header-sub span {
+  color: var(--accent);
+}
+
+/* ── 统计卡片 ── */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 40px;
+  animation: fadeSlideUp 0.6s ease-out 0.1s both;
+}
+
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  border-color: var(--border-glow);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+}
+
+.stat-card.p0::before { background: linear-gradient(90deg, var(--p0), transparent); }
+.stat-card.p1::before { background: linear-gradient(90deg, var(--p1), transparent); }
+.stat-card.p2::before { background: linear-gradient(90deg, var(--p2), transparent); }
+.stat-card.total::before { background: linear-gradient(90deg, var(--accent), transparent); }
+
+.stat-label {
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  font-family: var(--font-mono);
+}
+
+.stat-value {
+  font-size: 42px;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.stat-card.p0 .stat-value { color: var(--p0); }
+.stat-card.p1 .stat-value { color: var(--p1); }
+.stat-card.p2 .stat-value { color: var(--p2); }
+.stat-card.total .stat-value { color: var(--accent); }
+
+.stat-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* ── 架构图 ── */
+.arch-section {
+  margin-bottom: 48px;
+  animation: fadeSlideUp 0.6s ease-out 0.2s both;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-title::before {
+  content: '';
+  width: 3px;
+  height: 20px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--p0), var(--p1));
+}
+
+.arch-layers {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.arch-layer {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px 28px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.arch-layer:hover {
+  border-color: var(--border-glow);
+  background: var(--bg-card-hover);
+}
+
+.layer-badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  min-width: 36px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.layer-badge.l0 { background: rgba(52,211,153,0.12); color: var(--accent); border: 1px solid rgba(52,211,153,0.25); }
+.layer-badge.l1 { background: rgba(96,165,250,0.12); color: var(--p1); border: 1px solid rgba(96,165,250,0.25); }
+.layer-badge.l2 { background: rgba(251,191,36,0.12); color: var(--shared); border: 1px solid rgba(251,191,36,0.25); }
+
+.layer-info { flex: 1; }
+
+.layer-name {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+
+.layer-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.layer-status {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.layer-status .dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 6px;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.dot.green { background: var(--accent); box-shadow: 0 0 8px rgba(52,211,153,0.4); }
+.dot.amber { background: var(--shared); box-shadow: 0 0 8px rgba(251,191,36,0.4); }
+
+.arch-connector {
+  width: 2px;
+  height: 16px;
+  margin-left: 46px;
+  background: linear-gradient(180deg, var(--border-glow), transparent);
+}
+
+/* ── Agent 面板 ── */
+.agents-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  animation: fadeSlideUp 0.6s ease-out 0.3s both;
+}
+
+.agent-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.agent-panel:hover {
+  border-color: var(--border-glow);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+}
+
+.agent-panel.shared {
+  grid-column: 1 / -1;
+}
+
+.agent-header {
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+}
+
+.agent-name {
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.agent-name .emoji { font-size: 18px; }
+
+.agent-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.memory-list { padding: 8px 0; }
+
+.memory-item {
+  padding: 12px 24px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  transition: background 0.2s;
+}
+
+.memory-item:hover { background: var(--bg-card-hover); }
+
+.priority-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.priority-dot.p0 { background: var(--p0); box-shadow: 0 0 6px rgba(244,114,182,0.4); }
+.priority-dot.p1 { background: var(--p1); box-shadow: 0 0 6px rgba(96,165,250,0.4); }
+.priority-dot.p2 { background: var(--p2); box-shadow: 0 0 6px rgba(167,139,250,0.4); }
+
+.memory-content { flex: 1; min-width: 0; }
+
+.memory-summary {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+.memory-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(139,154,181,0.08);
+  color: var(--text-muted);
+  border: 1px solid rgba(139,154,181,0.12);
+}
+
+.memory-expires {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  text-align: right;
+  min-width: 70px;
+}
+
+.memory-expires.never { color: var(--p0); }
+.memory-expires.days30 { color: var(--p1); }
+.memory-expires.days7 { color: var(--p2); }
+
+/* ── 动画 ── */
+@keyframes fadeSlideDown {
+  from { opacity: 0; transform: translateY(-16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+</style>
+</head>
+<body>
+<div class="noise-overlay"></div>
+<div class="container">
+
+  <!-- 头部 -->
+  <header class="header">
+    <div class="header-top">
+      <div class="header-icon">🧠</div>
+      <h1>Multi-Agent Memory System</h1>
+    </div>
+    <div class="header-sub">OpenViking Layered Architecture &middot; Last sync: <span>2026-02-27T15:27:00</span></div>
+  </header>
+
+  <!-- 统计卡片 -->
+  <section class="stats-row">
+    <div class="stat-card total">
+      <div class="stat-label">Total Entries</div>
+      <div class="stat-value">9</div>
+      <div class="stat-desc">across 4 memory stores</div>
+    </div>
+    <div class="stat-card p0">
+      <div class="stat-label">P0 · Core</div>
+      <div class="stat-value">5</div>
+      <div class="stat-desc">never expires</div>
+    </div>
+    <div class="stat-card p1">
+      <div class="stat-label">P1 · Important</div>
+      <div class="stat-value">3</div>
+      <div class="stat-desc">30-day lifecycle</div>
+    </div>
+    <div class="stat-card p2">
+      <div class="stat-label">P2 · Temporary</div>
+      <div class="stat-value">1</div>
+      <div class="stat-desc">7-day lifecycle</div>
+    </div>
+  </section>
+
+  <!-- 架构图 + Agent 面板占位 -->
+  <div id="architecture-section">
+    <section class="arch-section">
+      <div class="section-title">Layered Architecture</div>
+      <div class="arch-layers">
+        <div class="arch-layer">
+          <div class="layer-badge l0">L0</div>
+          <div class="layer-info">
+            <div class="layer-name">Working Memory</div>
+            <div class="layer-desc">Agent 运行时上下文窗口，不持久化</div>
+          </div>
+          <div class="layer-status"><span class="dot green"></span>volatile</div>
+        </div>
+        <div class="arch-connector"></div>
+        <div class="arch-layer">
+          <div class="layer-badge l1">L1</div>
+          <div class="layer-info">
+            <div class="layer-name">Agent-Local Memory</div>
+            <div class="layer-desc">每个 Agent 的私有 memory/ 目录，通过 .abstract.yaml 索引</div>
+          </div>
+          <div class="layer-status"><span class="dot green"></span>3 stores · 6 entries</div>
+        </div>
+        <div class="arch-connector"></div>
+        <div class="arch-layer">
+          <div class="layer-badge l2">L2</div>
+          <div class="layer-info">
+            <div class="layer-name">Shared Memory</div>
+            <div class="layer-desc">跨 Agent 共识层，存放全局约定和架构决策</div>
+          </div>
+          <div class="layer-status"><span class="dot amber"></span>1 store · 3 entries</div>
+        </div>
+      </div>
+    </section>
+  </div>
+  <div id="agents-section">
+    <section>
+      <div class="section-title">Memory Stores</div>
+      <div class="agents-grid">
+
+        <!-- Planner -->
+        <div class="agent-panel">
+          <div class="agent-header">
+            <div class="agent-name"><span class="emoji">📋</span> Planner</div>
+            <div class="agent-meta">agents/planner/memory · 2 entries</div>
+          </div>
+          <div class="memory-list">
+            <div class="memory-item">
+              <div class="priority-dot p0"></div>
+              <div class="memory-content">
+                <div class="memory-summary">项目目标：构建基于 OpenViking 的分层记忆系统</div>
+                <div class="memory-tags"><span class="tag">project-goal</span><span class="tag">architecture</span></div>
+              </div>
+              <div class="memory-expires never">forever</div>
+            </div>
+            <div class="memory-item">
+              <div class="priority-dot p1"></div>
+              <div class="memory-content">
+                <div class="memory-summary">任务分解：记忆系统改造分为5个子任务</div>
+                <div class="memory-tags"><span class="tag">task-plan</span><span class="tag">decomposition</span></div>
+              </div>
+              <div class="memory-expires days30">29d left</div>
+            </div>
+          </div>
+        </div>
+        <!-- Coder -->
+        <div class="agent-panel">
+          <div class="agent-header">
+            <div class="agent-name"><span class="emoji">⌨️</span> Coder</div>
+            <div class="agent-meta">agents/coder/memory · 2 entries</div>
+          </div>
+          <div class="memory-list">
+            <div class="memory-item">
+              <div class="priority-dot p0"></div>
+              <div class="memory-content">
+                <div class="memory-summary">技术栈：Python + YAML + 文件系统存储</div>
+                <div class="memory-tags"><span class="tag">tech-stack</span><span class="tag">decision</span></div>
+              </div>
+              <div class="memory-expires never">forever</div>
+            </div>
+            <div class="memory-item">
+              <div class="priority-dot p2"></div>
+              <div class="memory-content">
+                <div class="memory-summary">记忆条目 YAML Schema 草稿</div>
+                <div class="memory-tags"><span class="tag">yaml-schema</span><span class="tag">memory-format</span></div>
+              </div>
+              <div class="memory-expires days7">6d left</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reviewer -->
+        <div class="agent-panel">
+          <div class="agent-header">
+            <div class="agent-name"><span class="emoji">🔍</span> Reviewer</div>
+            <div class="agent-meta">agents/reviewer/memory · 2 entries</div>
+          </div>
+          <div class="memory-list">
+            <div class="memory-item">
+              <div class="priority-dot p0"></div>
+              <div class="memory-content">
+                <div class="memory-summary">代码审查标准：记忆条目必须包含完整元数据</div>
+                <div class="memory-tags"><span class="tag">review-standards</span><span class="tag">quality</span></div>
+              </div>
+              <div class="memory-expires never">forever</div>
+            </div>
+            <div class="memory-item">
+              <div class="priority-dot p1"></div>
+              <div class="memory-content">
+                <div class="memory-summary">命名规范：记忆文件使用 {seq}-{slug}.yaml 格式</div>
+                <div class="memory-tags"><span class="tag">naming-convention</span><span class="tag">consistency</span></div>
+              </div>
+              <div class="memory-expires days30">29d left</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Shared Memory -->
+        <div class="agent-panel shared">
+          <div class="agent-header">
+            <div class="agent-name"><span class="emoji">🌐</span> Shared Memory</div>
+            <div class="agent-meta">shared-memory/ · 3 entries · all P0</div>
+          </div>
+          <div class="memory-list">
+            <div class="memory-item">
+              <div class="priority-dot p0"></div>
+              <div class="memory-content">
+                <div class="memory-summary">记忆条目统一 Schema 规范（全局约定）</div>
+                <div class="memory-tags"><span class="tag">memory-schema</span><span class="tag">convention</span><span class="tag">all-agents</span></div>
+              </div>
+              <div class="memory-expires never">forever</div>
+            </div>
+            <div class="memory-item">
+              <div class="priority-dot p0"></div>
+              <div class="memory-content">
+                <div class="memory-summary">P0/P1/P2 生命周期规则定义</div>
+                <div class="memory-tags"><span class="tag">lifecycle</span><span class="tag">priority-rules</span><span class="tag">all-agents</span></div>
+              </div>
+              <div class="memory-expires never">forever</div>
+            </div>
+            <div class="memory-item">
+              <div class="priority-dot p0"></div>
+              <div class="memory-content">
+                <div class="memory-summary">跨 Agent 记忆同步协议</div>
+                <div class="memory-tags"><span class="tag">sync-protocol</span><span class="tag">cross-agent</span><span class="tag">all-agents</span></div>
+              </div>
+              <div class="memory-expires never">forever</div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- .agents-grid -->
+    </section>
+  </div>
+
+</div><!-- .container -->
+</body>
+</html>
